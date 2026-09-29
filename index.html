@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BIO 116 — POGIL Group Simulators</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Lora:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --chalkboard:#004c6e;
+    --paper:#FBF8F2;
+    --ink:#262B22;
+    --ink-soft:#54584C;
+    --card-edge:rgba(0,0,0,0.1);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--chalkboard);
+    font-family:'Lora',serif;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  .wrap{max-width:560px;width:100%;}
+  h1{
+    font-family:'Caveat',cursive;
+    font-size:40px;
+    color:#F4F1E6;
+    text-align:center;
+    margin:0 0 6px;
+  }
+  .sub{
+    text-align:center;
+    color:#CFE0D2;
+    font-size:14px;
+    margin-bottom:32px;
+  }
+  .card{
+    display:block;
+    background:var(--paper);
+    border:1px solid var(--card-edge);
+    border-radius:6px;
+    padding:22px 24px;
+    margin-bottom:16px;
+    text-decoration:none;
+    color:var(--ink);
+    box-shadow:0 8px 18px rgba(0,0,0,0.25);
+    transition:transform .15s;
+  }
+  .card:hover{ transform:translateY(-2px); }
+  .card .label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .card .title{
+    font-family:'Caveat',cursive;
+    font-weight:700;
+    font-size:26px;
+    color:var(--chalkboard);
+  }
+  .card .desc{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  footer{
+    text-align:center;
+    color:#CFE0D2;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    margin-top:24px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BIO 116 POGIL Simulators</h1>
+  <div class="sub">Pick an activity to begin</div>
+
+  <a class="card" href="atp_simulator.html">
+    <div class="label">Biology &mdash; ATP</div>
+    <div class="title">ATP — The Free Energy Carrier</div>
+    <div class="desc">Simulated study group: Jordan, Maya &amp; Theo</div>
+  </a>
+
+  <footer>More activities will appear here as they're added</footer>
+</div>
+</body>
+</html>

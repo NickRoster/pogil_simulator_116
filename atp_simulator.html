@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ATP — The Free Energy Carrier — Group Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --chalkboard:#004c6e;
+    --chalkboard-2:#0a5f85;
+    --chalk:#F4F1E6;
+    --chalk-dim:#CFE0D2;
+    --paper:#FBF8F2;
+    --rule:#B9D2C8;
+    --margin-red:#C0524C;
+    --high-contrast-red:#7A1F1B;
+    --ink:#262B22;
+    --ink-soft:#54584C;
+    --pencil-yellow:#E8B93F;
+    --card-manager:#EFE3C8;
+    --card-manager-edge:#D8C394;
+    --card-recorder:#E7F0E9;
+    --card-recorder-edge:#BBD3C2;
+    --card-reflector:#FBF1CF;
+    --card-reflector-edge:#E3CC85;
+    --card-student:#E4EEF6;
+    --card-student-edge:#B6CFE0;
+    --correct:#0e6537;
+    --wrong:#B14B3F;
+    --card-student-icon:#2E6B93;
+  }
+  *{box-sizing:border-box;}
+
+  /* Accessibility: screen-reader-only text */
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+  }
+
+  /* Accessibility: consistent, high-contrast keyboard focus indicator on every
+     interactive element -- default browser outlines can be inconsistent across
+     the dark header vs. light paper backgrounds, so we make it explicit. */
+  button:focus-visible, input:focus-visible, textarea:focus-visible{
+    outline:3px solid #B5730D;
+    outline-offset:2px;
+  }
+  /* NMC blue is lighter than the old header color -- no single amber clears 3:1
+     against both it and the light paper at once, so header buttons get their own
+     focus color (verified 5.07:1 against the blue). */
+  header button:focus-visible{
+    outline-color:var(--pencil-yellow);
+  }
+
+  /* Accessibility: respect reduced-motion preference */
+  @media (prefers-reduced-motion: reduce){
+    .card{ animation:none; }
+    *{ scroll-behavior:auto !important; }
+  }
+  body{
+    margin:0;
+    background:var(--chalkboard);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.04), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(255,255,255,0.03), transparent 55%);
+    font-family:'Lora', serif;
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 0 60px;}
+
+  /* ---------- Header / chalkboard chrome ---------- */
+  header{
+    padding:28px 24px 22px;
+    color:var(--chalk);
+    text-align:center;
+    border-bottom:3px dashed rgba(244,241,230,0.25);
+  }
+  header .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--chalk-dim);
+    margin-bottom:6px;
+  }
+  header h1{
+    font-family:'Caveat',cursive;
+    font-weight:700;
+    font-size:42px;
+    margin:0 0 4px;
+    line-height:1.05;
+  }
+  header .sub{font-size:14px;color:var(--chalk-dim);font-style:italic;}
+
+  .progress{
+    display:flex;justify-content:center;gap:7px;margin-top:18px;flex-wrap:wrap;padding:0 20px;
+  }
+  .tally{
+    width:9px;height:9px;border-radius:50%;
+    background:rgba(244,241,230,0.22);
+    border:1px solid rgba(244,241,230,0.3);
+  }
+  .tally.done{background:var(--pencil-yellow);border-color:var(--pencil-yellow);}
+  .tally.current{background:var(--chalk);border-color:var(--chalk);transform:scale(1.3);}
+
+  .scoreboard{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--chalk-dim);
+    text-align:center;
+    margin-top:14px;
+    letter-spacing:.03em;
+  }
+  .scoreboard b{color:var(--pencil-yellow);}
+  .restartlink{
+    margin-top:12px;
+    margin-left:6px;margin-right:6px;
+    background:none;border:1px solid rgba(244,241,230,0.35);
+    color:var(--chalk-dim);
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.05em;
+    padding:5px 12px;border-radius:12px;cursor:pointer;
+  }
+  .restartlink:hover{background:rgba(244,241,230,0.12);color:var(--chalk);}
+
+  /* ---------- Paper body ---------- */
+  .paper{
+    background:var(--paper);
+    background-image: repeating-linear-gradient(
+        var(--paper) 0px, var(--paper) 27px, var(--rule) 28px
+      );
+    background-position: 0 14px;
+    position:relative;
+    border-left:3px solid var(--margin-red);
+    margin:0 18px;
+    padding:30px 26px 30px 40px;
+    box-shadow:0 18px 40px rgba(0,0,0,0.28);
+  }
+  .step-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--high-contrast-red);
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:var(--paper);
+    padding:10px 0 9px;
+    margin:0 0 12px;
+    border-bottom:1px solid rgba(0,0,0,0.1);
+    box-shadow:0 10px 14px -12px rgba(0,0,0,0.3);
+  }
+  .prompt-card{
+    background:rgba(255,255,255,0.55);
+    border:1px solid rgba(0,0,0,0.08);
+    border-radius:3px;
+    padding:16px 18px;
+    margin-bottom:22px;
+    font-size:15.5px;
+    line-height:1.65;
+    color:var(--ink);
+    white-space:pre-wrap;
+  }
+  .prompt-card .qtitle{
+    font-family:'Caveat',cursive;
+    font-weight:700;
+    font-size:24px;
+    color:var(--chalkboard);
+    display:block;
+    margin:0 0 10px;
+  }
+  .context-box{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    background:rgba(0,0,0,0.035);
+    border-left:3px solid var(--rule);
+    padding:10px 13px;
+    margin-bottom:14px;
+    border-radius:2px;
+    white-space:pre-wrap;
+    line-height:1.55;
+  }
+  .solo-badge{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.03em;
+    text-transform:uppercase;
+    background:var(--card-recorder);border:1px solid var(--card-recorder-edge);
+    color:var(--ink-soft);
+    padding:5px 10px;border-radius:12px;
+    margin-bottom:12px;
+  }
+  .flag-review{
+    margin-bottom:18px;
+    border:1px solid rgba(0,0,0,0.1);
+    border-radius:3px;
+    background:rgba(255,255,255,0.5);
+    max-height:340px;
+    overflow-y:auto;
+  }
+  .flag-review-title{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);
+    padding:10px 14px 6px;
+  }
+  .flag-review-item{
+    padding:9px 14px;border-top:1px solid rgba(0,0,0,0.07);
+    font-size:13px;
+  }
+  .flag-review-item:first-of-type{border-top:none;}
+  .flag-review-meta{
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.02em;
+    color:var(--ink-soft);margin-bottom:3px;text-transform:uppercase;
+  }
+  .flag-review-verdict{font-weight:600;}
+  .flag-review-item.caught .flag-review-verdict{color:var(--correct);}
+  .flag-review-item.false-alarm .flag-review-verdict{color:var(--wrong);}
+  .flag-review-text{
+    font-style:italic;color:var(--ink);line-height:1.45;
+  }
+  .flag-review-explain{
+    margin-top:4px;font-size:11.5px;color:var(--ink-soft);
+  }
+  .active-question{
+    font-size:16px;
+    font-weight:500;
+    color:var(--ink);
+    white-space:pre-wrap;
+  }
+
+  /* ---------- Chat thread ---------- */
+  #thread{display:flex;flex-direction:column;gap:16px;margin-bottom:18px;}
+
+  .card{
+    position:relative;
+    max-width:84%;
+    padding:13px 16px 12px;
+    border-radius:2px;
+    box-shadow:0 6px 14px rgba(0,0,0,0.15);
+    font-size:14.5px;
+    line-height:1.55;
+    animation:drop .25s ease;
+  }
+  @keyframes drop{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .card::before{
+    content:'';
+    position:absolute;top:-7px;left:18px;
+    width:11px;height:11px;border-radius:50%;
+    background:#8a8478;
+    box-shadow:0 2px 3px rgba(0,0,0,0.35);
+  }
+  .card .who{
+    font-family:'Caveat',cursive;font-weight:700;font-size:18px;
+    margin-bottom:3px;display:flex;align-items:center;gap:8px;
+  }
+  .card .role{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.06em;
+    color:var(--ink-soft);text-transform:uppercase;font-weight:400;
+  }
+  .card.manager{background:var(--card-manager);border:1px solid var(--card-manager-edge);}
+  .card.recorder{background:var(--card-recorder);border:1px solid var(--card-recorder-edge);align-self:flex-end;}
+  .card.recorder::before{left:auto;right:18px;}
+  .card.reflector{background:var(--card-reflector);border:1px solid var(--card-reflector-edge);}
+  .card.student{background:var(--card-student);border:1px solid var(--card-student-edge);align-self:flex-end;margin-left:auto;}
+  .card.student::before{display:none;}
+
+  /* ---------- Persona avatar icons (inline in chat cards) ---------- */
+  .avatar-circle{
+    width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 5px rgba(0,0,0,0.25);
+    border:2px solid rgba(255,255,255,0.85);
+    flex-shrink:0;
+  }
+  .avatar-icon{ width:26px;height:26px; }
+  .avatar-manager{ background:var(--card-manager); color:#7A5A17; }
+  .avatar-recorder{ background:var(--card-recorder); color:#215A3C; }
+  .avatar-reflector{ background:var(--card-reflector); color:#8A6A10; }
+  .avatar-student{ background:var(--card-student); color:var(--card-student-icon); }
+
+  .avatar-inline{
+    width:24px;height:24px;
+    border-width:1.5px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .avatar-inline .avatar-icon{ width:13px;height:13px; }
+
+  .flagbtn{
+    margin-top:10px;
+    display:inline-flex;align-items:center;gap:6px;
+    border:1.5px solid var(--high-contrast-red);
+    background:rgba(122,31,27,0.08);color:var(--high-contrast-red);
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.03em;
+    text-transform:uppercase;
+    cursor:pointer;line-height:1;
+    padding:7px 12px;border-radius:14px;
+    transition:background .15s, transform .1s;
+  }
+  .flagbtn:hover{background:var(--high-contrast-red);color:#fff;transform:translateY(-1px);}
+  .flagbtn[disabled]{cursor:default;transform:none;}
+  .flagbtn.caught{background:var(--correct);border-color:var(--correct);color:#fff;}
+  .flagbtn.false-alarm{background:var(--wrong);border-color:var(--wrong);color:#fff;}
+  .flagbtn .flagicon{font-size:13px;}
+  .flag-row{display:flex;align-items:center;gap:6px;margin-top:10px;}
+  .flag-row .flagbtn{margin-top:0;}
+  .clearflag{
+    background:none;border:none;cursor:pointer;
+    color:var(--ink-soft);font-size:15px;line-height:1;padding:2px 4px;
+  }
+  .clearflag:hover{color:var(--ink);}
+
+  .reveal{
+    margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.2);
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-soft);
+  }
+  .reveal b{color:var(--ink);}
+
+  .typing{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);
+    padding-left:4px;font-style:italic;
+  }
+
+  /* ---------- Input ---------- */
+  .inputbar{
+    display:flex;gap:8px;margin-top:6px;
+  }
+  .inputbar textarea{
+    flex:1;resize:none;font-family:'Lora',serif;font-size:14.5px;
+    border:1px solid rgba(0,0,0,0.18);border-radius:2px;
+    padding:10px 12px;background:#fff;color:var(--ink);min-height:46px;
+  }
+  .inputbar textarea::placeholder, .namegate-card input::placeholder{
+    color:var(--ink-soft);opacity:1;
+  }
+  .inputbar button{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.04em;
+    background:var(--chalkboard);color:var(--chalk);border:none;border-radius:2px;
+    padding:0 18px;cursor:pointer;text-transform:uppercase;
+  }
+  .inputbar button:hover{background:var(--chalkboard-2);}
+  .inputbar button:disabled{opacity:.4;cursor:default;}
+
+  .navrow{display:flex;justify-content:space-between;margin-top:20px;gap:10px;}
+  .navrow button{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;
+    border:1.5px solid var(--chalkboard);background:transparent;color:var(--chalkboard);
+    padding:9px 16px;border-radius:2px;cursor:pointer;
+  }
+  .navrow button:hover{background:var(--chalkboard);color:var(--chalk);}
+  .navrow button:disabled{opacity:.3;cursor:default;border-color:#999;color:#999;background:transparent;}
+  .navrow .erase{margin-left:auto;}
+
+  .extchoices{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .extchoices button{
+    text-align:left;font-family:'Lora',serif;font-size:14px;
+    background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.12);border-radius:3px;
+    padding:10px 12px;cursor:pointer;color:var(--ink);
+  }
+  .extchoices button:hover{background:#fff;border-color:var(--chalkboard);}
+  .extchoices button.picked{border-color:var(--correct);background:var(--card-recorder);}
+
+  footer{
+    text-align:center;color:var(--chalk-dim);font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;padding:20px;letter-spacing:.04em;
+  }
+  .handout-note{
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--card-reflector);border:1px solid var(--card-reflector-edge);
+    border-radius:3px;
+    margin:18px 18px 0;padding:11px 14px;
+    font-size:13px;line-height:1.5;color:var(--ink);
+    box-shadow:0 6px 14px rgba(0,0,0,0.18);
+  }
+  .handout-note button{
+    margin-left:auto;background:none;border:none;cursor:pointer;
+    font-size:18px;line-height:1;color:var(--ink-soft);padding:0 2px;flex-shrink:0;
+  }
+  .handout-note button:hover{color:var(--ink);}
+  .handout-note.hidden{display:none;}
+  .extension-note{
+    background:var(--pencil-yellow);
+    border:2px solid var(--high-contrast-red);
+    box-shadow:0 8px 18px rgba(0,0,0,0.25);
+    font-weight:500;
+  }
+  .extension-note b{color:var(--high-contrast-red);}
+
+  .namegate{
+    min-height:60vh;
+    display:flex;align-items:center;justify-content:center;
+    padding:40px 20px;
+  }
+  .namegate-card{
+    background:var(--paper);
+    border-left:3px solid var(--margin-red);
+    border-radius:3px;
+    padding:34px 30px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 18px 40px rgba(0,0,0,0.35);
+  }
+  .namegate-card .eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-soft);margin-bottom:10px;
+  }
+  .namegate-card p{
+    font-size:14.5px;color:var(--ink-soft);margin:6px 0 18px;
+  }
+  .namegate-card input{
+    width:100%;font-family:'Lora',serif;font-size:16px;text-align:center;
+    border:1px solid rgba(0,0,0,0.2);border-radius:2px;padding:11px 12px;
+    background:#fff;color:var(--ink);margin-bottom:14px;
+  }
+  .namegate-error{
+    color:var(--high-contrast-red);
+    font-size:12.5px;
+    margin:-8px 0 12px;
+    text-align:center;
+  }
+  .namegate-card button{
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--chalkboard);color:var(--chalk);border:none;border-radius:2px;
+    padding:11px 20px;cursor:pointer;width:100%;
+  }
+  .namegate-card button:hover{background:var(--chalkboard-2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="namegate" id="nameGate">
+    <div class="namegate-card">
+      <div class="eyebrow">Solo Online Lab Group</div>
+      <div style="font-family:'Caveat',cursive;font-weight:700;font-size:28px;color:var(--chalkboard);margin-bottom:8px;">Before we start...</div>
+      <p>What should Jordan, Maya, and Theo call you?</p>
+      <label for="nameInput" class="sr-only">Your first name</label>
+      <input id="nameInput" type="text" placeholder="Your first name" maxlength="30" autocomplete="off" aria-describedby="nameError">
+      <div id="nameError" role="alert" class="namegate-error" style="display:none;">Please enter your name to continue.</div>
+      <button id="nameSubmitBtn">Let's begin <span aria-hidden="true">&rarr;</span></button>
+    </div>
+  </div>
+
+  <div id="mainApp" style="display:none;">
+  <header>
+    <div class="eyebrow">Solo Online Lab Group</div>
+    <h1>ATP — The Free Energy Carrier</h1>
+    <div class="sub" id="subline">You're sitting in with Jordan, Maya &amp; Theo. One of them is occasionally wrong on purpose — catch it.</div>
+    <div class="progress" id="progress"></div>
+    <div class="scoreboard" id="scoreboard">Flags: <b>0</b> caught · <b>0</b> false alarms</div>
+    <button class="restartlink" id="restartBtn" aria-live="polite"><span aria-hidden="true">&#8634;</span> Start over</button>
+    <button class="restartlink" id="downloadBtn"><span aria-hidden="true">&#8681;</span> Download my responses</button>
+  </header>
+
+  <div class="handout-note" id="resumeNote" style="display:none;">
+    <span class="flagicon" style="font-size:15px;" aria-hidden="true">🔖</span>
+    <span>Welcome back — picking up right where you left off.</span>
+    <button id="dismissResumeNote" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div class="handout-note" id="handoutNote">
+    <span class="flagicon" style="font-size:15px;" aria-hidden="true">📓</span>
+    <span>Have your printed or digital copy of the original POGIL handout open beside you — the group will refer to <b>Model 1</b> (the ATP structure), <b>Model 2</b> (the hydrolysis reaction), and <b>Model 3</b> (the ATP cycle diagram) that aren't fully reproduced here.</span>
+    <button id="dismissNote" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div class="handout-note extension-note" id="extensionReminder" style="display:none;">
+    <span class="flagicon" style="font-size:16px;" aria-hidden="true">📌</span>
+    <span>Almost done! The <b>Extension Questions (Q13–15)</b> aren't part of this simulator — complete them on your own in your handout and turn them in separately.</span>
+  </div>
+
+  <main class="paper">
+    <div class="step-label" id="stepLabel">Step 1 of 8</div>
+    <div class="prompt-card" id="promptCard"></div>
+    <div id="extWrap"></div>
+
+    <div id="thread" role="log" aria-live="polite" aria-relevant="additions" aria-label="Group discussion"></div>
+    <div id="typingRow" aria-live="polite"></div>
+    <div class="inputbar">
+      <label for="msgInput" class="sr-only">Your response</label>
+      <textarea id="msgInput" placeholder="Jump into the discussion..." rows="2"></textarea>
+      <button id="sendBtn">Send</button>
+    </div>
+    <div class="navrow">
+      <button id="prevBtn"><span aria-hidden="true">&larr;</span> Back</button>
+      <button id="nextBtn" class="erase">Next question <span aria-hidden="true">&rarr;</span></button>
+    </div>
+  </main>
+  <footer>Peer dialogue is simulated · misconceptions are intentional and will be revealed when flagged</footer>
+  </div>
+</div>
+
+<script>
+const PERSONAS = {
+  Jordan: {role:"Manager — keeps the group moving, checks for agreement", cls:"manager", avatarCls:"avatar-manager",
+    icon:`<svg viewBox="0 0 24 24" class="avatar-icon"><rect x="5" y="4" width="14" height="18" rx="2" fill="currentColor"/><rect x="9" y="2" width="6" height="4" rx="1" fill="currentColor"/><path d="M8 13l2.3 2.3L16 9.8" fill="none" stroke="var(--card-manager)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`},
+  Maya:   {role:"Recorder — tracks the group's answers precisely", cls:"recorder", avatarCls:"avatar-recorder",
+    icon:`<svg viewBox="0 0 24 24" class="avatar-icon"><rect x="4" y="3" width="14" height="18" rx="1.5" fill="currentColor"/><rect x="7" y="7.2" width="8" height="1.4" fill="var(--card-recorder)"/><rect x="7" y="10.7" width="8" height="1.4" fill="var(--card-recorder)"/><rect x="7" y="14.2" width="5" height="1.4" fill="var(--card-recorder)"/><path d="M16 16l4 4M20 16l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`},
+  Theo:   {role:"Reflector — questions assumptions, pokes at reasoning", cls:"reflector", avatarCls:"avatar-reflector",
+    icon:`<svg viewBox="0 0 24 24" class="avatar-icon"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 3.2a6.8 6.8 0 100 13.6 6.8 6.8 0 000-13.6zm0 2.8a4 4 0 110 8 4 4 0 010-8z" fill="currentColor"/><line x1="14.6" y1="14.6" x2="20.5" y2="20.5" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>`}
+};
+const STUDENT_ICON = `<svg viewBox="0 0 24 24" class="avatar-icon"><path d="M12 3L1 8l11 5 11-5-11-5z" fill="currentColor"/><path d="M6 11v4.2c0 1.6 2.9 3.3 6 3.3s6-1.7 6-3.3V11l-6 2.7L6 11z" fill="currentColor"/><rect x="19.3" y="9" width="1.3" height="7" rx="0.6" fill="currentColor"/></svg>`;
+
+
+const MODEL1_REFERENCE = `Model 1 in the students' printed handout is titled "Adenosine Triphosphate (ATP)." It's a labeled chemical structure diagram of one ATP molecule, drawn left to right in three connected parts (this is exactly what Question 1 asks students to label):
+
+1. ADENINE (leftmost part) -- a double-ring structure (a six-membered ring fused to a five-membered ring, the classic purine shape) with an NH2 (amino) group attached at the top. This is the nitrogen-containing base.
+2. RIBOSE SUGAR (middle part) -- a five-membered ring drawn just to the right of adenine, connected to it. The ribose ring has two OH (hydroxyl) groups drawn hanging off its bottom edge (side by side, labeled "OH OH").
+3. PHOSPHATE GROUPS (rightmost part) -- a chain of exactly THREE phosphate groups extending to the right from the ribose. A CH2 group comes off the top of the ribose ring, connects through an oxygen (O) to the first phosphorus (P) atom, which connects through another oxygen to the second P, which connects through another oxygen to the third (terminal) P. Each of the three P atoms has a double-bonded O drawn pointing straight down below it, and a single-bonded O⁻ (negatively charged oxygen) drawn pointing straight up above it. The third, terminal P has one additional O⁻ drawn off to its right, since it isn't bonded onward to a fourth phosphate.
+
+So, left to right, the molecule reads: adenine ring system -- ribose sugar ring -- three phosphate groups in a chain (this chain of three phosphates is why it's called "tri-phosphate"). There is no arrow or directionality drawn anywhere in Model 1 -- it is simply one static labeled structure, not a cycle or a reaction.`;
+
+const MODEL2_REFERENCE = `Model 2 in the students' printed handout is titled "Hydrolysis of ATP." It shows a chemical reaction, drawn left to right with a reaction arrow in the middle:
+
+LEFT SIDE (reactants): the same ATP structure from Model 1 (adenine -- ribose with two OH groups -- three phosphates in a chain, each phosphate flanked by =O below and O⁻ above), with an arrow labeled "H2O" pointing down into the reaction arrow from above, showing water as the second reactant being added.
+
+REACTION ARROW: a single arrow pointing right, from the ATP + water side to the products side.
+
+RIGHT SIDE (products), three products total:
+1. ADP (adenosine diphosphate) -- the same adenine + ribose structure, but now with only TWO phosphate groups in the chain instead of three. The second (now terminal) phosphate ends in an -OH group instead of continuing on to a third phosphate.
+2. A jagged, starburst-shaped callout box containing the word "Energy" -- drawn between the ADP structure and the inorganic phosphate, showing that energy is released.
+3. Inorganic phosphate, labeled "Inorganic Phosphate (Pi)" -- drawn as a lone phosphate group: HO-P(=O)(O⁻)-O⁻, i.e. a phosphorus atom bonded to an -OH, a double-bonded O, and two single-bonded O⁻ groups, not attached to anything else.
+
+So the overall reaction shown is: ATP + H2O → ADP + Pi + Energy. This is hydrolysis -- breaking the bond connecting the terminal phosphate to the rest of the molecule, using a water molecule, and releasing energy in the process. The terminal phosphate group leaves as free inorganic phosphate, and the -OH from water ends up on the ADP, while the H from water ends up on the departing phosphate (this is what "atoms from the water molecule" means in Question 4 -- one splits onto each product, it's not that the whole water molecule disappears or attaches intact to one side).`;
+
+const MODEL3_REFERENCE = `Model 3 in the students' printed handout is titled "The ATP Cycle." It's a circular diagram, not a linear reaction -- two curved block arrows form a full circle, connecting two labeled states at the top and bottom, with two side boxes showing where energy comes from and where it goes:
+
+TOP of the circle: "ATP + water"
+BOTTOM of the circle: "ADP + phosphate"
+
+LEFT ARC of the circle: a curved block arrow running up the LEFT side, with its arrowhead pointing UP toward "ATP + water" at the top (i.e., this arc represents going from ADP+phosphate at the bottom UP to ATP+water at the top). To the left of this arc, an arrow labeled "Energy" points INTO the circle from a box reading "Respiration or photosynthesis." This left arc is the PHOSPHORYLATION step -- ADP + phosphate, powered by energy from respiration or photosynthesis, becomes ATP + water. This is Question 9's second blank.
+
+RIGHT ARC of the circle: a curved block arrow running down the RIGHT side, with its arrowhead pointing DOWN toward "ADP + phosphate" at the bottom (i.e., this arc represents going from ATP+water at the top DOWN to ADP+phosphate at the bottom). To the right of this arc, an arrow labeled "Energy" points OUT of the circle toward a box reading "Cellular processes such as muscle contraction, protein synthesis, cell division, etc." This right arc is the HYDROLYSIS step -- ATP + water, releasing energy that powers those cellular processes, becomes ADP + phosphate. This is Question 9's first blank.
+
+So reading the whole cycle clockwise starting at the top: ATP + water (top) → [right arc, hydrolysis, energy flows OUT to cellular processes] → ADP + phosphate (bottom) → [left arc, phosphorylation, energy flows IN from respiration/photosynthesis] → back to ATP + water (top). It is a continuous cycle, not a one-time reaction -- the same phosphate groups and ADP/ATP molecules get reused over and over, which is the point of Question 12's money analogy (spending vs. earning vs. saving) and the "Read This!" note about billions of ATP molecules being recycled daily rather than used once and discarded.`;
+
+const GROUPS = [
+{
+  title: "Q1 — Labeling the three parts",
+  questions: [
+    `The diagram of ATP in Model 1 has three parts. Use your knowledge of biomolecules to label the molecule with an "adenine" section, a "ribose sugar" section, and a "phosphate groups" section.`
+  ]
+},
+{
+  title: "Q2 — What \"tri-\" means, and picturing ADP",
+  questions: [
+    `What is meant by the "tri-" in the name adenosine triphosphate?`,
+    `Discuss with your group what the structure of adenosine diphosphate (ADP) might look like. Draw or describe your conclusions.`
+  ]
+},
+{
+  title: "Q3 — Writing the reaction",
+  questions: [
+    `Model 2 illustrates a chemical reaction. Write the reaction as an equation, using the name or abbreviation of each of the two reactants and each of the three products.`
+  ]
+},
+{
+  title: "Q4 — Where the water's atoms go",
+  questions: [
+    `Consider the structural formulas of ATP, ADP, and phosphate in Model 2 carefully. What happens to the atoms from the water molecule during the hydrolysis of ATP?`
+  ]
+},
+{
+  title: "Q5 — The word \"hydrolysis\"",
+  questions: [
+    `The word hydrolysis has two roots, hydro and lysis. Describe how this term relates to the chemical reaction illustrated in Model 2.`
+  ]
+},
+{
+  title: "Q6 — Energy and potential energy",
+  questions: [
+    `Does the hydrolysis of ATP result in a net output, or a net input, of energy?`,
+    `Which molecule, ATP or ADP, has a higher potential energy? Explain your reasoning.`
+  ]
+},
+{
+  title: "Q7 — Exothermic, and a common misconception about bonds",
+  questions: [
+    `Is the process in Model 2 endothermic or exothermic?`,
+    `Recall that all bonds require energy to break, but energy is released when bonds are formed. With this in mind, explain why it is incorrect to say that the phosphoester bond in ATP releases a large amount of energy when ATP turns into ADP.`
+  ]
+},
+{
+  title: "Q8 — The reverse reaction: phosphorylation",
+  context: `Read This! The conversion of ATP to ADP is not only exothermic, but there is also an increase in entropy of the system. Therefore, the hydrolysis of ATP is exergonic, and provides free energy for many processes needed to sustain life.\n\nThe reaction in Model 2 is reversible.`,
+  questions: [
+    `Write a reaction for the process that is the reverse of Model 2.`,
+    `This reverse reaction is called phosphorylation. Explain why this name is appropriate for the reaction above.`,
+    `Would you expect this reaction to be endergonic or exergonic? Explain your reasoning.`
+  ]
+},
+{
+  title: "Q9 — Labeling the ATP cycle",
+  questions: [
+    `Label the two large arrows in Model 3 with "hydrolysis" and "phosphorylation."`
+  ]
+},
+{
+  title: "Q10 — Where the energy from hydrolysis goes",
+  context: `When ATP is hydrolyzed, free energy is available.`,
+  questions: [
+    `According to Model 3, what does that energy get used for?`,
+    `Name at least two other cellular processes that could be fueled by the hydrolysis of ATP that are not listed in Model 3.`
+  ]
+},
+{
+  title: "Q11 — Where the energy to rebuild ATP comes from",
+  questions: [
+    `After it is used, an ADP molecule is recycled back into ATP. What cellular, exergonic processes supply the energy needed for the phosphorylation of ADP?`
+  ]
+},
+{
+  title: "Q12 — The money analogy",
+  context: `In the Why? box at the start of this activity, an analogy was made between money and cellular energy.`,
+  questions: [
+    `What part(s) of the ATP cycle are analogous to earning money?`,
+    `What part(s) of the ATP cycle are analogous to spending money?`,
+    `What would be analogous to saving money in the context of ATP?`
+  ]
+},
+{
+  title: "Reflecting on your flags",
+  reflection: true,
+  questions: [ {text: ``, individual: true} ] // filled in dynamically at render time, based on this student's own flag record
+}
+];
+
+const STEPS = [];
+GROUPS.forEach((g, gi)=>{
+  const multi = g.questions.length > 1;
+  g.questions.forEach((q, qi)=>{
+    const qText = (typeof q === 'string') ? q : q.text;
+    const qIndividual = (typeof q === 'object') && !!q.individual;
+    STEPS.push({
+      groupIdx: gi,
+      title: g.title,
+      letter: multi ? String.fromCharCode(97+qi) : null,
+      context: g.context || null,
+      question: qText,
+      individual: qIndividual,
+      reflection: !!g.reflection,
+      extensions: (qi===0 && g.extensions) ? g.extensions : null
+    });
+  });
+});
+
+let studentName = '';
+// This page now calls a private Cloudflare Worker proxy instead of Anthropic
+// directly, so the real API key never touches the browser. Fill in your
+// Worker's URL below after deploying it (see the deployment walkthrough).
+const API_PROXY_URL = "https://pogil-proxy.nroster.workers.dev/";
+let stepIdx = 0;
+let chosenExtension = null;
+let histories = STEPS.map(()=>[]); // per-step message log {speaker,type,text,explanation,flagState}
+let groupSummaries = {}; // groupIdx -> short rolling recap of prior sub-questions in that group
+let scores = {caught:0, falseAlarms:0};
+let activeSeconds = 0; // ticks only while the tab is open and visible -- pauses when hidden/backgrounded
+let loading = false;
+
+const progressEl = document.getElementById('progress');
+const stepLabelEl = document.getElementById('stepLabel');
+const promptCardEl = document.getElementById('promptCard');
+const extWrapEl = document.getElementById('extWrap');
+const threadEl = document.getElementById('thread');
+const typingRowEl = document.getElementById('typingRow');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const scoreboardEl = document.getElementById('scoreboard');
+
+function renderProgress(){
+  progressEl.innerHTML = '';
+  STEPS.forEach((s,i)=>{
+    const d = document.createElement('div');
+    d.className = 'tally' + (i<stepIdx?' done':'') + (i===stepIdx?' current':'');
+    progressEl.appendChild(d);
+  });
+}
+function buildFlagReview(){
+  const items = [];
+  STEPS.forEach((step, idx)=>{
+    histories[idx].forEach(m=>{
+      if(m.flagState){
+        items.push({
+          stepLabel: step.title + (step.letter ? ` (${step.letter})` : ''),
+          speaker: m.speaker,
+          text: m.text,
+          verdict: m.flagState, // 'caught' or 'false-alarm'
+          explanation: m.explanation || ''
+        });
+      }
+    });
+  });
+  return items;
+}
+
+function buildReflectionQuestion(){
+  const total = scores.caught + scores.falseAlarms;
+  if(total === 0){
+    return `You didn't flag anything as questionable this time through. Think back over the discussion: was there a moment you weren't sure whether a peer's statement was right, but decided not to flag it? What made you hold back?`;
+  }
+  return `Over this whole activity, you flagged ${total} statement${total===1?'':'s'} as questionable: ${scores.caught} turned out to be genuine misconceptions, and ${scores.falseAlarms} were false alarms — cases where a peer's statement was actually sound.\n\nAs a group, reflect together: for the false alarms, what made those particular statements feel suspicious in the moment, even though they held up? And for the ones you caught, what tipped you off?`;
+}
+
+function renderScoreboard(){
+  scoreboardEl.innerHTML = `Flags: <b>${scores.caught}</b> caught &middot; <b>${scores.falseAlarms}</b> false alarms`;
+}
+
+function renderStep(){
+  renderProgress();
+  const s = STEPS[stepIdx];
+  if(s.reflection){
+    s.question = buildReflectionQuestion();
+  }
+  const letterTag = s.letter ? ` (${s.letter})` : '';
+  stepLabelEl.textContent = `Question ${stepIdx+1} of ${STEPS.length} — ${s.title}${letterTag}`;
+  let html = `<h2 class="qtitle">${s.title}${letterTag}</h2>`;
+  if(s.individual){
+    html += `<div class="solo-badge"><span aria-hidden="true">🧍</span> ${s.reflection ? 'Personal reflection — just for you, no group chat here' : 'Solo work — jot your own answer, the group weighs in next question'}</div>`;
+  }
+  if(s.reflection){
+    const flagItems = buildFlagReview();
+    if(flagItems.length){
+      html += `<div class="flag-review"><div class="flag-review-title">Your flags this activity</div>`;
+      flagItems.forEach(item=>{
+        const verdictLabel = item.verdict==='caught' ? '<span aria-hidden="true">✓</span> caught' : '<span aria-hidden="true">✕</span> false alarm';
+        html += `<div class="flag-review-item ${item.verdict}">
+          <div class="flag-review-meta">${escapeHtml(item.stepLabel)} — ${escapeHtml(item.speaker)} <span class="flag-review-verdict">${verdictLabel}</span></div>
+          <div class="flag-review-text">"${escapeHtml(item.text)}"</div>
+          ${item.explanation ? `<div class="flag-review-explain">${escapeHtml(item.explanation)}</div>` : ''}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
+  if(s.context){
+    html += `<div class="context-box">${escapeHtml(s.context)}</div>`;
+  }
+  html += `<div class="active-question">${escapeHtml(s.question)}</div>`;
+  if(s.reflection){
+    html += `<div class="handout-note extension-note" style="margin:16px 0 0;">
+      <span class="flagicon" style="font-size:16px;" aria-hidden="true">📥</span>
+      <span>You're all done! Click <b>"Download my responses"</b> at the top of the page, and turn that file in to your instructor.</span>
+    </div>`;
+  }
+  promptCardEl.innerHTML = html;
+  extWrapEl.innerHTML = '';
+  if(s.extensions){
+    const box = document.createElement('div');
+    box.className = 'extchoices';
+    s.extensions.forEach(ext=>{
+      const b = document.createElement('button');
+      b.textContent = ext.label;
+      if(chosenExtension===ext.key) b.classList.add('picked');
+      b.onclick = ()=>{ chosenExtension = ext.key; renderStep(); };
+      box.appendChild(b);
+    });
+    extWrapEl.appendChild(box);
+  }
+  renderThread();
+  document.getElementById('extensionReminder').style.display = (stepIdx === STEPS.length - 1) ? 'flex' : 'none';
+  msgInput.placeholder = s.individual ? "Jot down your own answer..." : "Jump into the discussion...";
+  prevBtn.disabled = stepIdx===0;
+  nextBtn.disabled = stepIdx===STEPS.length-1;
+  nextBtn.textContent = stepIdx===STEPS.length-1 ? 'Last question' : 'Next question →';
+  if(!s.individual && histories[stepIdx].length===0 && (!s.extensions || chosenExtension)){
+    kickoff();
+  }
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderThread(){
+  threadEl.innerHTML = '';
+  histories[stepIdx].forEach((m, idx)=>{
+    threadEl.appendChild(buildCard(m, idx));
+  });
+}
+
+function buildCard(m, idx){
+  const card = document.createElement('div');
+  if(m.speaker === 'You'){
+    card.className = 'card student';
+    card.innerHTML = `<div class="who"><span class="avatar-circle avatar-student avatar-inline" aria-hidden="true">${STUDENT_ICON}</span>${escapeHtml(studentName || 'You')}</div><div>${escapeHtml(m.text)}</div>`;
+    return card;
+  }
+  const persona = PERSONAS[m.speaker];
+  card.className = 'card ' + persona.cls;
+  let inner = `<div class="who"><span class="avatar-circle ${persona.avatarCls} avatar-inline" aria-hidden="true">${persona.icon}</span>${m.speaker} <span class="role">${persona.role.split(' — ')[0]}</span></div><div>${escapeHtml(m.text)}</div>`;
+  card.innerHTML = inner;
+
+  if(m.speaker !== 'You' && !STEPS[stepIdx].reflection && m.type !== 'tangent'){
+    const row = document.createElement('div');
+    row.className = 'flag-row';
+    const btn = document.createElement('button');
+    btn.className = 'flagbtn';
+    if(m.flagState){
+      btn.disabled = true;
+      btn.classList.add(m.flagState);
+      btn.innerHTML = m.flagState==='caught' ? '<span class="flagicon" aria-hidden="true">✓</span> caught it' : '<span class="flagicon" aria-hidden="true">✕</span> false alarm';
+    } else {
+      btn.innerHTML = '<span class="flagicon" aria-hidden="true">🚩</span> Flag as questionable';
+    }
+    btn.onclick = ()=> flagMessage(idx, btn);
+    row.appendChild(btn);
+    if(m.flagState === 'false-alarm'){
+      const clear = document.createElement('button');
+      clear.className = 'clearflag';
+      clear.title = 'Dismiss this false alarm';
+      clear.setAttribute('aria-label', 'Dismiss this false alarm');
+      clear.innerHTML = '&times;';
+      clear.onclick = ()=> clearFlag(idx);
+      row.appendChild(clear);
+    }
+    card.appendChild(row);
+  }
+
+  if(m.flagState){
+    const rev = document.createElement('div');
+    rev.className = 'reveal';
+    const verdict = m.type === 'misconception' ? 'This was a planted misconception.' :
+                    m.type === 'socratic_probe' ? 'This was a genuine probing question — not actually wrong.' : '';
+    rev.innerHTML = `<b>${verdict}</b><br>${escapeHtml(m.explanation || '')}`;
+    card.appendChild(rev);
+  }
+  return card;
+}
+
+function flagMessage(idx, btn){
+  const m = histories[stepIdx][idx];
+  if(m.flagState) return;
+  if(m.type === 'misconception'){
+    m.flagState = 'caught';
+    scores.caught++;
+  } else {
+    m.flagState = 'false-alarm';
+    scores.falseAlarms++;
+  }
+  renderScoreboard();
+  renderThread();
+  saveProgress();
+}
+
+function clearFlag(idx){
+  const m = histories[stepIdx][idx];
+  if(m.flagState !== 'false-alarm') return;
+  m.flagState = null;
+  scores.falseAlarms = Math.max(0, scores.falseAlarms - 1);
+  renderScoreboard();
+  renderThread();
+  saveProgress();
+}
+
+// localStorage: private to this page in this one browser -- exactly what
+// per-student progress/name needs. Works the same on GitHub Pages as
+// anywhere else. Trade-off: scoped to one browser, not one account.
+async function saveProgress(){
+  try{
+    localStorage.setItem('pogil_progress_atp_free_energy', JSON.stringify({
+      stepIdx, chosenExtension, histories, groupSummaries, scores, activeSeconds
+    }));
+  }catch(e){
+    console.error('Could not save progress:', e);
+  }
+}
+
+async function loadProgress(){
+  try{
+    const raw = localStorage.getItem('pogil_progress_atp_free_energy');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null; // nothing saved yet, or storage unavailable -- start fresh
+  }
+}
+
+async function clearProgress(){
+  try{
+    localStorage.removeItem('pogil_progress_atp_free_energy');
+  }catch(e){ /* nothing to clear */ }
+}
+
+async function saveName(name){
+  try{
+    localStorage.setItem('pogil_studentName', name);
+  }catch(e){
+    console.error('Could not save name:', e);
+  }
+}
+
+async function loadName(){
+  try{
+    return localStorage.getItem('pogil_studentName');
+  }catch(e){
+    return null;
+  }
+}
+
+let activeTimerHandle = null;
+function startActiveTimer(){
+  if(activeTimerHandle) return; // already running
+  activeTimerHandle = setInterval(()=>{
+    if(document.visibilityState === 'visible'){
+      activeSeconds++;
+      if(activeSeconds % 15 === 0){ saveProgress(); } // periodic autosave so a crash/refresh doesn't lose much
+    }
+  }, 1000);
+}
+
+function formatDuration(totalSeconds){
+  const h = Math.floor(totalSeconds/3600);
+  const m = Math.floor((totalSeconds%3600)/60);
+  const s = totalSeconds%60;
+  if(h>0) return `${h}h ${String(m).padStart(2,'0')}m`;
+  if(m>0) return `${m}m ${String(s).padStart(2,'0')}s`;
+  return `${s}s`;
+}
+
+function setLoading(v){
+  loading = v;
+  sendBtn.disabled = v;
+  msgInput.disabled = v;
+  typingRowEl.innerHTML = v ? `<div class="typing">the group is thinking…</div>` : '';
+}
+
+function collectIndividualAnswers(groupIdx, beforeIdx){
+  const out = [];
+  for(let i=0; i<beforeIdx; i++){
+    if(STEPS[i].groupIdx === groupIdx && STEPS[i].individual){
+      const answers = histories[i].filter(m=>m.speaker==='You').map(m=>m.text);
+      if(answers.length){
+        out.push({ letter: STEPS[i].letter, text: answers.join(' / ') });
+      }
+    }
+  }
+  return out;
+}
+
+async function callGroup(studentMessage){
+  setLoading(true);
+  const s = STEPS[stepIdx];
+  let stepPrompt = (s.context ? s.context + "\n\n" : "") + "Discuss: " + s.question;
+  if(s.extensions){
+    stepPrompt += "\n\nThe group picked this scenario: " + s.extensions.find(e=>e.key===chosenExtension).label;
+  }
+
+  const historyText = histories[stepIdx].map(m=>`${m.speaker === 'You' ? studentName : m.speaker}: ${m.text}`).join('\n');
+
+  const individualAnswers = (!s.individual) ? collectIndividualAnswers(s.groupIdx, stepIdx) : [];
+  const individualAnswersBlock = individualAnswers.length
+    ? `\n\n${studentName || 'The student'}'S OWN ANSWERS FROM THE INDIVIDUAL-WORK PARTS OF THIS QUESTION (this is exactly what they wrote -- bring it into the discussion directly and specifically, don't just vaguely gesture at it or reword it into something generic):\n${individualAnswers.map(a => `(${a.letter}): "${a.text}"`).join('\n')}`
+    : '';
+
+  const system = `You are simulating three students -- Jordan, Maya, Theo -- in a small online peer-learning group working through a POGIL biology activity on ATP (adenosine triphosphate) as the cell's free-energy carrier, alongside a fourth real student named ${studentName || 'the student'}. This is for a community college biology class.
+
+The real student's name is "${studentName || '(not given)'}" -- address them by name sometimes, the way real teammates naturally would (e.g. "yeah, ${studentName || 'good point'}, that tracks" or opening a question with their name), but not in every single message -- that would feel robotic. A rough guide: name them roughly once every 2-4 peer turns, not every turn.
+
+Personas:
+- Jordan: Manager. Keeps the group on task, summarizes, checks for agreement before moving on.
+- Maya: Recorder. Precise, careful, tracks what the group has concluded so far.
+- Theo: Reflector. MOST of the time, Theo just contributes normally like everyone else -- agrees, adds a thought, moves the discussion along. Only occasionally (see the frequency rule below) does Theo lean into the "reflector" trait and push back on an assumption or ask a genuinely substantive question. Theo should NOT habitually ask the group to define terms or re-explain basic vocabulary turn after turn -- that gets repetitive fast and slows the group down. When Theo does probe, it should be about the actual reasoning or evidence in play (e.g. "wait, how do we know that's the right one and not this other one?"), not "what does X mean?"
+
+Opening a new question (when the student hasn't spoken yet this step): vary how this opens rather than following one fixed pattern. Often, Jordan should invite the student to share their own thinking FIRST -- e.g. "what do you think, ${studentName || 'the student'}?" or "want to take a first crack at this one?" -- so the student is regularly the one doing the first real thinking, not just reacting to a fully-formed group answer. But this should NOT be the only pattern: it also reads as more natural, real-group behavior for Maya or Theo to sometimes just jump in with their own take before anyone asks the student -- including, sometimes, a slightly-off answer (tying into the misconception mechanic below) that the student has to notice and weigh in on, not just confirm. Mix these genuinely -- inviting the student first should be common, but a peer occasionally speaking first (sound or shaky) should also happen regularly enough that it does not feel like a rigid script either way.
+
+Pedagogical rule: across the conversation, vary peer contributions between three types:
+1. "supportive" -- a normal, correct, on-topic contribution.
+2. "misconception" -- a peer states something that SOUNDS plausible but is actually scientifically/logically wrong about ATP and energy coupling (e.g. saying the phosphate bond itself "contains" or "stores" the energy that gets released, rather than the energy coming from the overall change in free energy between reactants and products -- this is a famous, very common misconception, so it's a great one to use, but ALWAYS have another peer or the student catch and correct it within the same step, matching Q7b's own point; confusing exergonic/endergonic with exothermic/endothermic as if they're always the same thing; assuming ATP is "used up" or destroyed rather than recycled back into ATP via phosphorylation; assuming hydrolysis requires energy input rather than releasing it (mixing up which direction of the cycle needs energy vs. releases it); assuming the three phosphates are chemically identical to each other with no reason the terminal one comes off preferentially; assuming ATP is a long-term energy storage molecule like fat rather than a short-term, rapidly-recycled "small bill," etc). State it confidently, as a peer genuinely would, with no tell.
+3. "socratic_probe" -- a peer asks a genuinely good probing question that exposes a gap in reasoning, without stating anything wrong themselves. This is a deliberate, occasional device, not a personality trait Theo (or anyone) uses constantly.
+
+Do NOT use a misconception or socratic_probe on every turn -- most turns should be "supportive", INCLUDING most of Theo's turns specifically. Roughly 1 in every 3-4 peer turns total should be type 2 or 3 (across all three personas combined, not 1-in-3-4 for each persona individually) -- so if Theo speaks three times in a step, one or two of those should just be ordinary supportive contributions, not every single one turned into a probing question. Never let Maya (Recorder) be the one who states misconceptions more than once per step -- spread it across Jordan and Theo too. Keep the group's overall trajectory moving toward a correct understanding of the current question, and keep the pace brisk -- this is meant to feel like a quick real conversation, not an interrogation.
+
+Occasionally -- rarely, at most once every several questions, never on the very first turn of a question (only after the student has said something) -- let Maya or Theo (never Jordan) go on a brief, mild, realistic off-topic tangent: a distraction, a side gripe about something unrelated, a rabbit hole, a joke that runs too long. Keep it short (1-2 sentences), classroom-appropriate, and clearly the kind of thing a real study-group member might blurt out. Tag this turn as type "tangent". Do not have Jordan produce a tangent -- Jordan's role is to notice and redirect them, not cause them.
+
+Handling tangents and derailment (this is a chance for the student to practice group-facilitation skills, so give them room to do it):
+- If a tangent happened in a recent turn and the student's latest message steers the group back to the actual question themselves, have a peer (ideally Jordan) warmly acknowledge that the student pulled the group back on track -- this is the student practicing a real managerial skill, so make the acknowledgment genuine, not perfunctory.
+- If a tangent happened and the student's latest message just continues the tangent or ignores it, have Jordan step in this turn as the Manager would -- a brief, friendly redirect back to the actual question (e.g. "okay, focus back up, what were we saying about...").
+- If the STUDENT's own message goes off-topic or tries to derail the group, treat it the same way as a peer tangent: don't scold, just have Jordan (or another peer) gently and warmly steer the conversation back to the current question.
+- Never have more than one unresolved tangent going at once -- resolve it (via student redirect or Jordan's redirect) before ever introducing another.
+
+Ground every turn in the actual content of the current POGIL question below -- do not invent unrelated content beyond an occasional brief tangent as described above. Keep each peer message 1-4 sentences, natural spoken register, not lecture-y. If a recap of what the group already concluded earlier in this discussion is provided, treat it as settled -- build on it naturally (a quick nod is fine, e.g. Jordan referencing it) rather than re-explaining or re-debating it from scratch.
+
+If the student's own individual-work answers are provided below, this question is the "compare notes" moment right after solo work -- open by having a peer directly reference what the student actually wrote (quote or closely paraphrase it, don't generalize it away), and compare it with what the peers came up with on their own. This should feel like real teammates comparing their individual answers, not like the peers are unaware the student already answered.
+
+BACKGROUND ONLY -- these describe Model 1, Model 2, and Model 3, the three diagrams in the students' own printed handout:
+
+MODEL 1: ${MODEL1_REFERENCE}
+
+MODEL 2: ${MODEL2_REFERENCE}
+
+MODEL 3: ${MODEL3_REFERENCE}
+
+This is FIXED, CANONICAL CONTENT -- identical for every student and every run of this activity, with no variation whatsoever. Any time a peer states anything about any of the three models -- the structure of ATP, the products of hydrolysis, the direction of the arrows in the ATP cycle -- it must exactly match the text above, every single time. Never invent a detail (an extra phosphate, a wrong arrow direction, a different product) that isn't stated above. If the student describes something about their actual diagram that isn't covered above, treat the student's own description as ground truth (you cannot see the image; they can) rather than contradicting them.
+
+If the current question is asking the group to look at one of the three models and identify or recall something directly from it themselves (like which part of Model 1 is which, or what a given arrow in Model 3 represents), do NOT have a peer simply recite the answer as a flat fact -- but also do NOT have a peer state an inaccurate or incomplete version, not even as a realistic "wrong guess." Keep the realism in tone and pacing only: e.g. a peer can say "let me check mine" or ask the student to read theirs off first, or take a beat before confirming -- but whatever content a peer eventually states must be correct and complete on the first try. For later questions that reason about material already established earlier in the activity, take it as already settled and refer back to it naturally, again always matching the reference above exactly.
+
+Respond with 1 to 3 peer turns reacting to the latest development (the student's message if given, otherwise just opening discussion of the question). Do not have all three speak every time -- 1 or 2 turns is often enough.
+
+Output ONLY valid JSON, no markdown fences, no commentary, in this exact shape:
+{"messages":[{"speaker":"Jordan|Maya|Theo","type":"supportive|misconception|socratic_probe|tangent","text":"...","explanation":"one sentence, only meaningful if type is misconception or socratic_probe -- for misconception explain what's actually correct; for socratic_probe explain what gap it's probing. Leave empty string for supportive or tangent."}]}`;
+
+  const priorSummary = groupSummaries[s.groupIdx];
+  const reflectionNote = s.reflection ? `\n\nNOTE: this is the closing personal-reflection question, not content review -- every peer turn here should be type "supportive" (genuine, thoughtful reflection on the group's own flagging judgment). Do not plant a misconception, run a socratic_probe, or introduce a tangent here.` : '';
+  const userContent = `CURRENT POGIL QUESTION:\n${stepPrompt}${reflectionNote}${individualAnswersBlock}\n\n${priorSummary ? 'WHAT THE GROUP ALREADY CONCLUDED EARLIER IN THIS SAME DISCUSSION:\n' + priorSummary + '\n\n' : ''}CONVERSATION SO FAR THIS STEP:\n${historyText || '(nothing yet -- this is the opening of the discussion)'}\n\n${studentMessage ? studentName + ' just said: "' + studentMessage + '"' : studentName + ' has not spoken yet -- per the opening-turn guidance above, have Jordan invite them to share their own thinking first, most of the time.'}`;
+
+  // Calls your own Cloudflare Worker (API_PROXY_URL), never Anthropic
+  // directly -- the Worker holds the real API key privately and forwards
+  // this request. The response shape matches Anthropic's Messages API, so
+  // parsing below is unchanged from that pattern.
+  try{
+    const response = await fetch(API_PROXY_URL, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        max_tokens: 1000,
+        system: system,
+        messages: [{role:"user", content: userContent}]
+      })
+    });
+    const data = await response.json();
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    let raw = textBlock ? textBlock.text : '{"messages":[]}';
+    raw = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(raw);
+    (parsed.messages||[]).forEach(m=>{
+      histories[stepIdx].push({speaker:m.speaker, type:m.type||'supportive', text:m.text, explanation:m.explanation||'', flagState:null});
+    });
+  }catch(e){
+    histories[stepIdx].push({speaker:'Jordan', type:'supportive', text:"(connection hiccup -- could you say that again?)", explanation:'', flagState:null});
+  }
+  setLoading(false);
+  renderThread();
+  saveProgress();
+}
+
+function kickoff(){
+  callGroup(null);
+}
+
+async function summarizeStep(idx){
+  const s = STEPS[idx];
+  if(histories[idx].length === 0) return;
+  const historyText = histories[idx].map(m=>`${m.speaker === 'You' ? studentName : m.speaker}: ${m.text}`).join('\n');
+  const system = `Write a one to two sentence plain-language recap of what a study group concluded about the question below, based on their conversation. This is for the group's own working notes, not addressed to anyone. No preamble, no quotes, no JSON -- just the sentence(s) themselves.`;
+  const userContent = `Question discussed: ${s.question}\n\nConversation:\n${historyText}`;
+  try{
+    const response = await fetch(API_PROXY_URL, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        max_tokens: 150,
+        system: system,
+        messages: [{role:"user", content: userContent}]
+      })
+    });
+    const data = await response.json();
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    const recap = textBlock ? textBlock.text.trim() : '';
+    if(recap){
+      const existing = groupSummaries[s.groupIdx];
+      groupSummaries[s.groupIdx] = existing ? existing + ' ' + recap : recap;
+    }
+  }catch(e){
+    // if the recap call fails, just move on without one -- not worth blocking navigation over
+  }
+}
+
+async function goToStep(newIdx){
+  const current = STEPS[stepIdx];
+  const target = STEPS[newIdx];
+  if(target.groupIdx === current.groupIdx && newIdx > stepIdx){
+    setLoading(true);
+    typingRowEl.innerHTML = `<div class="typing">jotting a quick recap…</div>`;
+    await summarizeStep(stepIdx);
+    setLoading(false);
+  }
+  stepIdx = newIdx;
+  renderStep();
+  saveProgress();
+}
+
+sendBtn.onclick = ()=>{
+  const val = msgInput.value.trim();
+  if(!val || loading) return;
+  histories[stepIdx].push({speaker:'You', type:'supportive', text:val, explanation:'', flagState:null});
+  msgInput.value = '';
+  renderThread();
+  saveProgress();
+  if(!STEPS[stepIdx].individual){
+    callGroup(val);
+  }
+};
+msgInput.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
+prevBtn.onclick = ()=>{ if(stepIdx>0){ goToStep(stepIdx-1); } };
+nextBtn.onclick = ()=>{ if(stepIdx<STEPS.length-1){ goToStep(stepIdx+1); } };
+document.getElementById('dismissNote').onclick = ()=>{
+  document.getElementById('handoutNote').classList.add('hidden');
+};
+document.getElementById('dismissResumeNote').onclick = ()=>{
+  document.getElementById('resumeNote').style.display = 'none';
+};
+let restartConfirming = false;
+document.getElementById('restartBtn').onclick = async ()=>{
+  const btn = document.getElementById('restartBtn');
+  if(!restartConfirming){
+    restartConfirming = true;
+    btn.textContent = 'Click again to confirm';
+    setTimeout(()=>{
+      if(restartConfirming){
+        restartConfirming = false;
+        btn.innerHTML = '<span aria-hidden="true">&#8634;</span> Start over';
+      }
+    }, 4000);
+    return;
+  }
+  restartConfirming = false;
+  btn.innerHTML = '<span aria-hidden="true">&#8634;</span> Start over';
+  await clearProgress();
+  stepIdx = 0;
+  chosenExtension = null;
+  histories = STEPS.map(()=>[]);
+  groupSummaries = {};
+  scores = {caught:0, falseAlarms:0};
+  activeSeconds = 0;
+  renderScoreboard();
+  document.getElementById('resumeNote').style.display = 'none';
+  renderStep();
+};
+
+function generateTranscript(){
+  const lines = [];
+  lines.push(`ATP — The Free Energy Carrier`);
+  lines.push(`Simulated study group — responses for ${studentName || 'student'}`);
+  lines.push(`Downloaded: ${new Date().toLocaleString()}`);
+  lines.push('');
+  lines.push(`Time on task: ${formatDuration(activeSeconds)} (tab open & active -- excludes time away from the page)`);
+  lines.push(`Flag record: ${scores.caught} caught, ${scores.falseAlarms} false alarms`);
+  lines.push('');
+  lines.push('='.repeat(60));
+
+  STEPS.forEach((step, idx)=>{
+    if(histories[idx].length === 0) return;
+    const letterTag = step.letter ? ` (${step.letter})` : '';
+    lines.push('');
+    lines.push(`${step.title}${letterTag}`);
+    lines.push(step.question);
+    lines.push('-'.repeat(40));
+    histories[idx].forEach(m=>{
+      const label = m.speaker === 'You' ? (studentName || 'You') : m.speaker;
+      let line = `${label}: ${m.text}`;
+      if(m.flagState){
+        line += m.flagState === 'caught' ? '   [flagged — caught a misconception]' : '   [flagged — false alarm]';
+      }
+      lines.push(line);
+    });
+  });
+
+  return lines.join('\n');
+}
+
+document.getElementById('downloadBtn').onclick = ()=>{
+  const content = generateTranscript();
+  const blob = new Blob([content], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = (studentName || 'student').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  a.download = `${safeName}-atp-free-energy-pogil.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+async function proceedAfterName(){
+  document.getElementById('nameGate').style.display = 'none';
+  document.getElementById('mainApp').style.display = '';
+  document.getElementById('subline').textContent = `Hey ${studentName} — you're sitting in with Jordan, Maya & Theo. One of them is occasionally wrong on purpose — catch it.`;
+
+  const saved = await loadProgress();
+  const hasProgress = saved && Array.isArray(saved.histories) && saved.histories.length === STEPS.length
+    && saved.histories.some(h => h.length > 0);
+  if(hasProgress){
+    stepIdx = saved.stepIdx || 0;
+    chosenExtension = saved.chosenExtension || null;
+    histories = saved.histories;
+    groupSummaries = saved.groupSummaries || {};
+    scores = saved.scores || {caught:0, falseAlarms:0};
+    activeSeconds = saved.activeSeconds || 0;
+    renderScoreboard();
+    document.getElementById('resumeNote').style.display = 'flex';
+  }
+  startActiveTimer();
+  renderStep();
+}
+
+document.getElementById('nameSubmitBtn').onclick = async ()=>{
+  const val = document.getElementById('nameInput').value.trim();
+  const errorEl = document.getElementById('nameError');
+  if(!val){
+    errorEl.style.display = 'block';
+    document.getElementById('nameInput').focus();
+    return;
+  }
+  errorEl.style.display = 'none';
+  studentName = val;
+  await saveName(val);
+  proceedAfterName();
+};
+document.getElementById('nameInput').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    document.getElementById('nameSubmitBtn').click();
+  }
+});
+
+async function init(){
+  const savedName = await loadName();
+  if(savedName){
+    studentName = savedName;
+    proceedAfterName();
+  } else {
+    document.getElementById('nameGate').style.display = 'flex';
+    document.getElementById('nameInput').focus();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
